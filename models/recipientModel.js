@@ -2,6 +2,10 @@ const mongoose = require("mongoose");
 
 const recipientSchema = new mongoose.Schema(
   {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
     first_name: {
       type: String,
       required: true,

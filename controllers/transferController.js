@@ -1,6 +1,7 @@
 const Transfer = require("../models/transferModel");
 const RecipientsArray = require("../models/recipientModel");
 const TransferFeeObject = require("../models/transferFeeModel");
+const axios = require("axios");
 
 // Define the transfer fees for different currencies
 const transferFees = {
@@ -50,6 +51,8 @@ const createTransfer = async (req, res) => {
     //  Retrieve the fee based on the selected currency
     const fee = transferFees[currency] || 0;
 
+    const userId = req.user.user._id;
+
     const val = await Transfer.create({
       account_bank,
       account_number,
@@ -58,6 +61,7 @@ const createTransfer = async (req, res) => {
       currency,
       reference,
       fee,
+      userId,
     });
     return res.status(200).json({
       success: true,
@@ -74,6 +78,7 @@ const createBulkTransfer = async (req, res) => {
 
   try {
     const reference = generateUniqueReference();
+    const userId = req.user.user._id;
 
     const bulkTransfer = await RecipientsArray.create({
       recipients: recipients.map((recipient) => {
@@ -82,6 +87,7 @@ const createBulkTransfer = async (req, res) => {
           ...recipient,
           reference,
           fee,
+          userId,
         };
       }),
     });
@@ -117,7 +123,8 @@ const getTransferFees = async (req, res) => {
 
 const getAlltransfers = async (req, res) => {
   try {
-    const data = await Transfer.find({}).sort({ $natural: -1 }).lean();
+    const userId = req.user.user._id;
+    const data = await Transfer.find({ userId }).sort({ $natural: -1 }).lean();
 
     const perPage = 2;
     const currentPage = parseInt(req.query.page) || 1;
@@ -146,15 +153,22 @@ const getAlltransfers = async (req, res) => {
     res.status(500).json(error);
   }
 };
+
 const getASingleTransfer = async (req, res) => {
   try {
-    const val = await Transfer.findById(req.params.id);
-    if (!val) {
-      return res
-        .status(401)
-        .json({ status: "false", message: "Transfer not found" });
+    const userId = req.user.user._id;
+    const transferId = req.params.id;
+
+    const val = await Transfer.findById(transferId).lean();
+
+    if (!val || val.userId.toString() !== userId) {
+      return res.status(401).json({
+        status: "false",
+        message: "Transfer not found or not authorized for this user",
+      });
     }
 
+    // If the transfer was created by the user, return the transfer details
     res
       .status(200)
       .json({ status: "success", message: "Transfer fetched", val });
@@ -165,31 +179,46 @@ const getASingleTransfer = async (req, res) => {
 
 const getABulkTansfer = async (req, res) => {
   try {
-    const val = await RecipientsArray.findById(req.params.id);
-    if (!val) {
+    const userId = req.user.user._id;
+    const transferId = req.params.id;
+
+    const bulkTransfer = await RecipientsArray.findOne({
+      recipients: {
+        $elemMatch: {
+          _id: transferId,
+          userId: userId,
+        },
+      },
+    });
+
+    if (!bulkTransfer) {
       return res
         .status(401)
         .json({ status: "false", message: "Bulk Transfer not found" });
     }
 
-    res
-      .status(200)
-      .json({ status: "success", message: "Transfer fetched", val });
+    // Now `bulkTransfer` contains the entire bulk transfer document,
+    // including the recipient with the specified `_id` and matching `userId`.
+    res.status(200).json({
+      status: "success",
+      message: "Transfer fetched",
+      data: bulkTransfer,
+    });
   } catch (error) {
     res.status(500).json(error);
   }
 };
 
-const computeTransferAmount = (req, res) => {
+const computeTransferAmount = async (req, res) => {
   const { amount, destination_currency, source_currency } = req.query;
 
   const currencyRates = {
     USD: {
-      NGN: 624.24,
+      NGN: 800.24,
       EUR: 0.85,
     },
     NGN: {
-      USD: 0.00160195,
+      USD: 0.00660195,
       EUR: 0.002,
     },
     EUR: {
@@ -218,6 +247,64 @@ const computeTransferAmount = (req, res) => {
   });
 };
 
+const retryTransfer = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find the transfer to retry
+    const transferToRetry = await Transfer.findById(id);
+    if (!transferToRetry) {
+      return res.status(404).json({
+        success: false,
+        message: "Transfer not found",
+      });
+    }
+
+    // Create a new transfer with the same details as the original transfer
+    const newTransfer = await Transfer.create({
+      account_bank: transferToRetry.account_bank,
+      account_number: transferToRetry.account_number,
+      amount: transferToRetry.amount,
+      narration: transferToRetry.narration,
+      currency: transferToRetry.currency,
+      reference: generateUniqueReference(),
+      fee: transferToRetry.fee,
+      retryTransferId: id, // Set the retryTransferId to the ID of the original transfer
+    });
+
+    return res.status(200).json({
+      success: "success",
+      message: "Transfer retry attempt queued",
+      data: retryAttempts,
+    });
+  } catch (error) {
+    res.status(500).json(error);
+  }
+};
+const getARetryTransfer = async (req, res) => {
+  try {
+    const val = await Transfer.findById(req.params.id);
+    if (!val) {
+      return res
+        .status(401)
+        .json({ status: "false", message: "Transfer retried not found" });
+    }
+
+    res.status(200).json({
+      status: "success",
+      message: "Transfer retry attempts retrieved.",
+      data: {
+        status: "PENDING",
+        complete_message: "Transfer is currently being processed",
+        narration: null,
+        val,
+      },
+    });
+  } catch (error) {
+    res.status(500).json(error);
+  }
+};
+
 module.exports = {
   createTransfer,
   createBulkTransfer,
@@ -226,4 +313,6 @@ module.exports = {
   getASingleTransfer,
   getABulkTansfer,
   computeTransferAmount,
+  retryTransfer,
+  getARetryTransfer,
 };
