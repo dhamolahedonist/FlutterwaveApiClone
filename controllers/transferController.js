@@ -222,7 +222,7 @@ const computeTransferAmount = async (req, res) => {
     },
     EUR: {
       USD: 0.85,
-      NGN: 600,
+      NGN: 1100,
     },
   };
 

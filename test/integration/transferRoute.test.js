@@ -9,7 +9,7 @@ const transferModel = require("../../models/transferModel");
 const receiptModel = require("../../models/recipientModel");
 
 const header = {
-  Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7Il9pZCI6IjY0YzUwN2JhNDE3N2FkYTAzMjM3N2M3OSIsImVtYWlsIjoib2R1YmFzYW11ZWw2NkBnbWFpbC5jb20ifSwiaWF0IjoxNjkwNjQ2ODExLCJleHAiOjE2OTA2NTA0MTF9.jiGIb4N4SChfFqbHCs3HK16HSRyw_d1RxAi36kvfz_I`,
+  Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7Il9pZCI6IjY0YzUwN2JhNDE3N2FkYTAzMjM3N2M3OSIsImVtYWlsIjoib2R1YmFzYW11ZWw2NkBnbWFpbC5jb20ifSwiaWF0IjoxNjkwNjY5MDYxLCJleHAiOjE2OTA2NzI2NjF9.30KVQgs8yqeLaaMLBnKAMzmlhPQ3o6inZ8PSmtPhNeQ`,
 };
 
 const user_id = "64c507ba4177ada032377c79";
@@ -85,6 +85,41 @@ describe("Initiate a transfer", () => {
           response.body.should.have.property("success");
           response.body.should.have.property("message");
           response.body.should.have.property("data");
+          resolve();
+        });
+    });
+  });
+  it("calculate transfer money correctly", async () => {
+    return new Promise(async (resolve) => {
+      const amount = 100;
+      const source_currency = "USD";
+      const destination_currency = "NGN";
+
+      chai
+        .request(app)
+        .get("/api/v1/transfers/rates")
+        .query({ amount, source_currency, destination_currency })
+
+        .end((err, response) => {
+          response.should.have.status(200);
+          response.body.should.be.an("object");
+          response.body.should.have.property("status").equal("success");
+          response.body.should.have.property("data");
+          response.body.data.should.have.property("rate");
+          response.body.data.should.have.property("source");
+          response.body.data.should.have.property("destination");
+
+          // Add your specific assertions based on the calculation logic
+          response.body.data.rate.should.equal(800.24);
+          response.body.data.source.currency.should.equal(source_currency);
+          response.body.data.source.amount.should.equal("100");
+          response.body.data.destination.currency.should.equal(
+            destination_currency
+          );
+          response.body.data.destination.amount.should.equal(
+            Math.floor(amount * 800.24)
+          );
+
           resolve();
         });
     });
