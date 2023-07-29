@@ -9,9 +9,8 @@ const transferModel = require("../../models/transferModel");
 const receiptModel = require("../../models/recipientModel");
 
 const header = {
-  Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7Il9pZCI6IjY0YzUwN2JhNDE3N2FkYTAzMjM3N2M3OSIsImVtYWlsIjoib2R1YmFzYW11ZWw2NkBnbWFpbC5jb20ifSwiaWF0IjoxNjkwNjY5MDYxLCJleHAiOjE2OTA2NzI2NjF9.30KVQgs8yqeLaaMLBnKAMzmlhPQ3o6inZ8PSmtPhNeQ`,
+  Authorization: `Bearer ${process.env.token}`,
 };
-
 const user_id = "64c507ba4177ada032377c79";
 
 chai.use(chaiHttp);
