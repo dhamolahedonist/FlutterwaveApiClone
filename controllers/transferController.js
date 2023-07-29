@@ -1,7 +1,6 @@
 const Transfer = require("../models/transferModel");
 const RecipientsArray = require("../models/recipientModel");
 const TransferFeeObject = require("../models/transferFeeModel");
-const axios = require("axios");
 
 // Define the transfer fees for different currencies
 const transferFees = {
