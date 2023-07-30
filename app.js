@@ -17,7 +17,13 @@ const PORT = process.env.PORT;
 app.use(bodyParser.urlencoded({ extended: true }));
 
 app.get("/", (req, res) => {
-  return res.json({ status: true });
+  return res.json({
+    status: true,
+    data: {
+      documentationUrl:
+        "https://documenter.getpostman.com/view/20062547/2s9XxtxFaR",
+    },
+  });
 });
 
 app.use("/api/v1/auth", authRoute);
